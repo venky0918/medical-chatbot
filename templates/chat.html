@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-powered medical chatbot for health consultations">
+    <title>Medical AI Assistant</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="{{ url_for('static', filename='style.css') }}" as="style">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    
+    <!-- Optimized CSS loading -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" integrity="sha512-b2QcS5SsA8tZodcDtGRELiGv5SaKSk1vDHDaQRda0htPYWZ6046lr3kJ5bAAQdpV2mmA/4v0wQF9MyU6/pDIAg==" crossorigin="anonymous">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <!-- Loading spinner -->
+    <div id="loading-spinner" class="loading-spinner d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="container-fluid h-100">
+        <div class="row justify-content-center h-100">
+            <div class="col-12 col-md-10 col-lg-8 col-xl-6 chat">
+                <div class="card shadow-lg">
+                    <!-- Chat Header -->
+                    <header class="card-header msg_head" role="banner">
+                        <div class="d-flex align-items-center">
+                            <div class="img_cont position-relative">
+                                <img src="https://cdn-icons-png.flaticon.com/512/387/387569.png" 
+                                     class="rounded-circle user_img" 
+                                     alt="Medical Chatbot Avatar"
+                                     loading="lazy">
+                                <span class="online_icon" aria-label="Online status"></span>
+                            </div>
+                            <div class="user_info ms-3">
+                                <h1 class="h5 mb-0 text-white">Medical AI Assistant</h1>
+                                <p class="small mb-0 text-white-50">Ask me anything about your health!</p>
+                            </div>
+                            <div class="ms-auto">
+                                <button class="btn btn-link text-white p-1" 
+                                        id="clearChat" 
+                                        title="Clear chat history"
+                                        aria-label="Clear chat history">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Chat Messages Area -->
+                    <main class="card-body msg_card_body" 
+                          id="messageContainer" 
+                          role="main" 
+                          aria-live="polite"
+                          aria-label="Chat messages">
+                        
+                        <!-- Welcome message -->
+                        <div class="welcome-message text-center text-white-50 p-4">
+                            <i class="fas fa-stethoscope fa-2x mb-3"></i>
+                            <p>Hello! I'm your medical AI assistant. How can I help you today?</p>
+                            <small class="text-muted">Please note: This is for informational purposes only and not a substitute for professional medical advice.</small>
+                        </div>
+                    </main>
+
+                    <!-- Input Area -->
+                    <footer class="card-footer" role="contentinfo">
+                        <form id="messageForm" class="input-group" novalidate>
+                            <input type="text" 
+                                   id="messageInput" 
+                                   name="msg" 
+                                   placeholder="Type your health question..." 
+                                   autocomplete="off" 
+                                   class="form-control type_msg" 
+                                   maxlength="1000"
+                                   required
+                                   aria-label="Type your message"
+                                   aria-describedby="sendButton">
+                            <button type="submit" 
+                                    id="sendButton" 
+                                    class="btn send_btn" 
+                                    disabled
+                                    aria-label="Send message">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                        <div class="typing-indicator d-none" id="typingIndicator">
+                            <span>AI is thinking</span>
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    Something went wrong. Please try again.
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js" integrity="sha512-X/YkDZyjTf4wyc2Vy16YGCPHwAY8rZJY+POgokZjQB2mhIRFJCckEGc6YyX9eNsPfn0PzThEuNs+uaomE5CO6A==" crossorigin="anonymous"></script>
+    
+    <script>
+        class MedicalChatbot {
+            constructor() {
+                this.messageContainer = document.getElementById('messageContainer');
+                this.messageForm = document.getElementById('messageForm');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.typingIndicator = document.getElementById('typingIndicator');
+                this.clearChatButton = document.getElementById('clearChat');
+                this.errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                
+                this.initializeEventListeners();
+                this.hideWelcomeMessage();
+            }
+
+            initializeEventListeners() {
+                // Form submission
+                this.messageForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleSubmit();
+                });
+
+                // Input validation
+                this.messageInput.addEventListener('input', () => {
+                    this.validateInput();
+                });
+
+                // Clear chat
+                this.clearChatButton.addEventListener('click', () => {
+                    this.clearChat();
+                });
+
+                // Enter key handling
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.handleSubmit();
+                    }
+                });
+            }
+
+            validateInput() {
+                const value = this.messageInput.value.trim();
+                this.sendButton.disabled = value.length === 0 || value.length > 1000;
+            }
+
+            hideWelcomeMessage() {
+                const welcomeMessage = this.messageContainer.querySelector('.welcome-message');
+                if (welcomeMessage && this.messageContainer.children.length > 1) {
+                    welcomeMessage.style.display = 'none';
+                }
+            }
+
+            async handleSubmit() {
+                const message = this.messageInput.value.trim();
+                if (!message || this.sendButton.disabled) return;
+
+                this.hideWelcomeMessage();
+                this.addUserMessage(message);
+                this.messageInput.value = '';
+                this.sendButton.disabled = true;
+                this.showTypingIndicator();
+
+                try {
+                    const response = await this.sendMessage(message);
+                    this.addBotMessage(response);
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    this.showErrorToast();
+                    this.addBotMessage('Sorry, I encountered an error. Please try again.');
+                } finally {
+                    this.hideTypingIndicator();
+                }
+            }
+
+            addUserMessage(message) {
+                const timestamp = this.getCurrentTime();
+                const messageElement = this.createMessageElement(message, timestamp, true);
+                this.messageContainer.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+
+            addBotMessage(message) {
+                const timestamp = this.getCurrentTime();
+                const messageElement = this.createMessageElement(message, timestamp, false);
+                this.messageContainer.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+
+            createMessageElement(message, timestamp, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `d-flex ${isUser ? 'justify-content-end' : 'justify-content-start'} mb-4`;
+
+                const avatarUrl = isUser 
+                    ? 'https://i.ibb.co/d5b84Xw/Untitled-design.png'
+                    : 'https://cdn-icons-png.flaticon.com/512/387/387569.png';
+
+                const avatarImg = `<img src="${avatarUrl}" class="rounded-circle user_img_msg" alt="${isUser ? 'User' : 'Bot'} avatar" loading="lazy">`;
+
+                if (isUser) {
+                    messageDiv.innerHTML = `
+                        <div class="msg_container_send">
+                            ${this.escapeHtml(message)}
+                            <span class="msg_time_send">${timestamp}</span>
+                        </div>
+                        <div class="img_cont_msg ms-2">
+                            ${avatarImg}
+                        </div>
+                    `;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="img_cont_msg me-2">
+                            ${avatarImg}
+                        </div>
+                        <div class="msg_container">
+                            ${this.formatBotMessage(message)}
+                            <span class="msg_time">${timestamp}</span>
+                        </div>
+                    `;
+                }
+
+                return messageDiv;
+            }
+
+            formatBotMessage(message) {
+                // Basic formatting for medical responses
+                return this.escapeHtml(message)
+                    .replace(/\n/g, '<br>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            getCurrentTime() {
+                const now = new Date();
+                return now.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            }
+
+            async sendMessage(message) {
+                const response = await fetch('/get', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `msg=${encodeURIComponent(message)}`
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return await response.text();
+            }
+
+            showTypingIndicator() {
+                this.typingIndicator.classList.remove('d-none');
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.typingIndicator.classList.add('d-none');
+            }
+
+            scrollToBottom() {
+                setTimeout(() => {
+                    this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
+                }, 100);
+            }
+
+            clearChat() {
+                const messages = this.messageContainer.querySelectorAll('.d-flex:not(.welcome-message)');
+                messages.forEach(msg => msg.remove());
+                
+                const welcomeMessage = this.messageContainer.querySelector('.welcome-message');
+                if (welcomeMessage) {
+                    welcomeMessage.style.display = 'block';
+                }
+            }
+
+            showErrorToast() {
+                this.errorToast.show();
+            }
+        }
+
+        // Initialize chatbot when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new MedicalChatbot();
+        });
+    </script>
+</body>
+</html>
